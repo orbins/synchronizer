@@ -1,11 +1,17 @@
 import logging
 import os
 from pathlib import Path
-import requests
 import sqlite3
 import time
 
+from dotenv import load_dotenv
+import requests
+
 logger = logging.getLogger(__name__)
+
+load_dotenv()
+
+access_token = os.getenv('ACCESS_TOKEN')
 
 
 def main():
@@ -26,9 +32,9 @@ def main():
         )
         connection.commit()
         cursor.execute(
-            """INSERT INTO modifies VALUES (dir_path = ?, updated_date = ?)""",
-            (dir_path, current_modified)
-        ).fetchone()
+            """INSERT INTO modifies (dir_path, updated_date)  VALUES (?)""",
+            (dir_path, )
+        )
         connection.commit()
         connection.close()
 
@@ -37,7 +43,7 @@ def main():
     last_modified = cursor.execute(
         """SELECT updated_date FROM modifies WHERE dir_path = ?""",
         (dir_path, )
-    ).fetchone()
+    ).fetchone()[0]
     connection.close()
 
     if last_modified != current_modified:
@@ -47,22 +53,10 @@ def main():
         cursor = connection.cursor()
         cursor.execute(
             f"""UPDATE modifies SET updated_date = ? WHERE dir_path = ?""",
-            (dir_path, current_modified)
+            (current_modified, dir_path)
         )
         connection.commit()
         connection.close()
-        params = {
-            "client_id": "d5598843-162e-4ce7-adad-e228224194cb",
-            "scope": "files.readwrite",
-            "response_type": "token",
-        }
-        response = requests.get(
-            f'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-            params=params
-        )
-        ...
 
 
 main()
-
-
