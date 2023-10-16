@@ -1,6 +1,7 @@
 import logging
 import os
 from pathlib import Path
+import shutil
 import sqlite3
 import time
 
@@ -57,6 +58,10 @@ def main():
         )
         connection.commit()
         connection.close()
+    try:
+        shutil.make_archive('Foundation', 'zip', dir_path)
+    except Exception as e:
+        print(e)
 
     headers = {
         'Accept': 'application/json',
@@ -64,21 +69,8 @@ def main():
         'Authorization': f'OAuth {access_token}'
     }
 
-    # проверка наличия папки на диске
     params = {
-        'path': 'Foundation'
-    }
-
-    response = requests.get(
-        'https://cloud-api.yandex.net/v1/disk/resources',
-        params=params,
-        headers=headers
-    )
-    print(response.status_code)
-    print(response.text)
-
-    params = {
-        'path': 'Foundation/',
+        'path': 'Foundation.zip',
         'overwrite': True
     }
 
@@ -90,7 +82,9 @@ def main():
     ).json()
     upload_url = response['href']
     # открытие файла и его загрузка на сервер
-    with open('C:/Users/Danil/Desktop/test.txt', 'rb') as file:
+
+    zip_file = Path(__file__).cwd() / 'Foundation.zip'
+    with open(zip_file, 'rb') as file:
         try:
             response = requests.put(
                 upload_url,
@@ -101,4 +95,5 @@ def main():
             print(response.text)
 
 
-main()
+if __name__ == '__main__':
+    main()
