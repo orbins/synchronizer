@@ -32,7 +32,7 @@ def main():
         )
         connection.commit()
         cursor.execute(
-            """INSERT INTO modifies (dir_path, updated_date)  VALUES (?)""",
+            """INSERT INTO modifies (dir_path)  VALUES (?)""",
             (dir_path, )
         )
         connection.commit()
@@ -57,6 +57,48 @@ def main():
         )
         connection.commit()
         connection.close()
+
+    headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': f'OAuth {access_token}'
+    }
+
+    # проверка наличия папки на диске
+    params = {
+        'path': 'Foundation'
+    }
+
+    response = requests.get(
+        'https://cloud-api.yandex.net/v1/disk/resources',
+        params=params,
+        headers=headers
+    )
+    print(response.status_code)
+    print(response.text)
+
+    params = {
+        'path': 'Foundation/',
+        'overwrite': True
+    }
+
+    # Запрос урла для загрузки
+    response = requests.get(
+        'https://cloud-api.yandex.net/v1/disk/resources/upload',
+        params=params,
+        headers=headers
+    ).json()
+    upload_url = response['href']
+    # открытие файла и его загрузка на сервер
+    with open('C:/Users/Danil/Desktop/test.txt', 'rb') as file:
+        try:
+            response = requests.put(
+                upload_url,
+                files={'file': file},
+                headers=headers
+            )
+        except KeyError:
+            print(response.text)
 
 
 main()
