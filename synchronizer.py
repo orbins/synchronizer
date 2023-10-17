@@ -1,10 +1,12 @@
 import logging
 import os
+import zipfile
 from pathlib import Path
 import shutil
 import sqlite3
 import time
 
+import pyzipper
 from dotenv import load_dotenv
 import requests
 
@@ -12,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-access_token = os.getenv('ACCESS_TOKEN')
+ACCESS_TOKEN = os.getenv('ACCESS_TOKEN')
+PASSWORD = os.getenv('PASSWORD')
 
 
 def main():
@@ -58,15 +61,38 @@ def main():
         )
         connection.commit()
         connection.close()
+
+    content = os.walk(dir_path)
     try:
-        shutil.make_archive('Foundation', 'zip', dir_path)
-    except Exception as e:
-        print(e)
+        zip_file = pyzipper.AESZipFile('Foundation.zip', 'w', compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES)
+        zip_file.pwd = bytes(PASSWORD, encoding='UTF-8')
+        for root, folders, files in content:
+            for folder_name in folders:
+                absolute_path = os.path.join(root, folder_name)
+                relative_path = absolute_path.replace(fr'{dir_path}\\', '')
+                print(f'Add {absolute_path} to archive')
+                zip_file.write(absolute_path, relative_path)
+
+            for file_name in files:
+                absolute_path = os.path.join(root, file_name)
+                relative_path = absolute_path.replace(fr'{dir_path}\\', '')
+                print(f'Add {absolute_path} to archive')
+                zip_file.write(absolute_path, relative_path)
+
+        print('zip file created successfully')
+    except IOError as error:
+        print(error)
+    except OSError as error:
+        print(error)
+    except zipfile.BadZipfile as error:
+        print(error)
+    finally:
+        zip_file.close()
 
     headers = {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'Authorization': f'OAuth {access_token}'
+        'Authorization': f'OAuth {ACCESS_TOKEN}'
     }
 
     params = {
