@@ -2,7 +2,6 @@ import logging
 import os
 import zipfile
 from pathlib import Path
-import shutil
 import sqlite3
 import time
 
@@ -64,18 +63,18 @@ def main():
 
     content = os.walk(dir_path)
     try:
-        zip_file = pyzipper.AESZipFile('Foundation.zip', 'w', compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES)
+        zip_file = pyzipper.AESZipFile('Foundation.zip', 'w', encryption=pyzipper.WZ_AES)
         zip_file.pwd = bytes(PASSWORD, encoding='UTF-8')
         for root, folders, files in content:
             for folder_name in folders:
                 absolute_path = os.path.join(root, folder_name)
-                relative_path = absolute_path.replace(fr'{dir_path}\\', '')
+                relative_path = absolute_path.replace(f'{dir_path}', '')
                 print(f'Add {absolute_path} to archive')
                 zip_file.write(absolute_path, relative_path)
 
             for file_name in files:
                 absolute_path = os.path.join(root, file_name)
-                relative_path = absolute_path.replace(fr'{dir_path}\\', '')
+                relative_path = absolute_path.replace(f'{dir_path}', '')
                 print(f'Add {absolute_path} to archive')
                 zip_file.write(absolute_path, relative_path)
 
@@ -119,6 +118,9 @@ def main():
             )
         except KeyError:
             print(response.text)
+    with pyzipper.AESZipFile('Foundation.zip') as zip_file:
+        zip_file.setpassword(bytes(PASSWORD, encoding='UTF-8'))
+        zip_file.extractall('Foundation')
 
 
 if __name__ == '__main__':
