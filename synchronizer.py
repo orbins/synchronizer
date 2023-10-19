@@ -25,8 +25,10 @@ class Synchronizer:
     def __init__(self, dir_path):
         self.dir_path = dir_path
         self.last_modified = None
-        self.current_modified = None
-        self.db_file = None
+        self.current_modified = time.ctime(
+            max(os.path.getmtime(root) for root, _, _ in os.walk(self.dir_path))
+        )
+        self.db_file = Path(__file__).cwd() / 'db.sqlite'
         self.zip_file = None
 
     def create_db(self):
@@ -80,15 +82,13 @@ class Synchronizer:
                     logger.info(f'Добавление {absolute_path} в zip-архив')
                     zip_file.write(absolute_path, relative_path)
             logger.info('Zip-архив успешно создан!')
+            self.zip_file = Path(__file__).cwd() / 'Foundation.zip'
         except IOError as error:
-            logger.error(f'Ошибка ввода при заполнении архива:\n{error}')
-            return
+            logger.error(f'Не удалось создать zip-архив. Ошибка ввода при заполнении архива:\n{error}')
         except OSError as error:
-            logger.error(f'Ошибка системы при заполнении архива:\n{error}')
-            return
+            logger.error(f'Не удалось создать zip-архив. Ошибка системы при заполнении архива:\n{error}')
         except zipfile.BadZipfile as error:
-            logger.error(f'Ошибка записи в архив:\n{error}')
-            return
+            logger.error(f'Не удалось создать zip-архив. Ошибка записи в архив:\n{error}')
         finally:
             zip_file.close()
 
@@ -116,8 +116,10 @@ class Synchronizer:
                     files={'file': file},
                     headers=headers
                 )
+                return True
             except KeyError as error:
                 logger.error(f'Ошибка загрузки файла на сервер:\n {error}')
+                return False
 
     def save_date_to_db(self):
         logger.info('Изменение даты обновления в базе данных')
@@ -129,40 +131,37 @@ class Synchronizer:
         )
         connection.commit()
         connection.close()
+        logger.info('Синхронизация успешно завершена!')
 
     def main(self):
-        self.current_modified = time.ctime(
-            max(os.path.getmtime(root) for root, _, _ in os.walk(self.dir_path))
-        )
-        self.db_file = Path(__file__).cwd() / 'db.sqlite'
-
         if not self.db_file.exists():
             logger.info('Файл базы данных в текущей директории не найден.')
             self.create_db()
-
         self.get_date_from_db()
-
+        if not self.last_modified:
+            return
         if self.last_modified != self.current_modified:
             logger.info('Указанная директория обновлялась. Начинается процесс синхронизации')
             self.make_zip()
-            self.zip_file = Path(__file__).cwd() / 'Foundation.zip'
-
+            if not self.zip_file.exists():
+                return
             headers = {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
                 'Authorization': f'OAuth {ACCESS_TOKEN}'
             }
-
             response = self.get_upload_url(headers)
-            if response['status_code'] != 200:
+            if response["status_code"] != 200:
+                logging.error(f'Ошибка получения ссылки url\'a для загрузки:\n{response["text"]}')
                 return
             upload_url = response['href']
 
-            if self.zip_file:
-                self.load_zip(upload_url, headers)
-
+            is_loaded = self.load_zip(upload_url, headers)
+            if not is_loaded:
+                return
             self.save_date_to_db()
-            logger.info('Синхронизация успешно завершена!')
+        else:
+            logger.info('Указанная директория не обновлялась с последней проверки, синхронизация не требуется.')
 
 
 if __name__ == '__main__':
