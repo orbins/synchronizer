@@ -13,6 +13,18 @@ import requests
 logger = logging.getLogger(__name__)
 logger.setLevel('INFO')
 
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler)
+
+file_handler = logging.FileHandler('sync.log', encoding='UTF-8')
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
 load_dotenv()
 
 ACCESS_TOKEN = os.getenv('ACCESS_TOKEN')
@@ -140,6 +152,8 @@ class Synchronizer:
         self.get_date_from_db()
         if not self.last_modified:
             return
+        logger.info(f"Date from db: {self.last_modified}")
+        logger.info(f"current date: {self.current_modified}")
         if self.last_modified != self.current_modified:
             logger.info('Указанная директория обновлялась. Начинается процесс синхронизации')
             self.make_zip()
@@ -151,11 +165,10 @@ class Synchronizer:
                 'Authorization': f'OAuth {ACCESS_TOKEN}'
             }
             response = self.get_upload_url(headers)
-            if response["status_code"] != 200:
-                logging.error(f'Ошибка получения ссылки url\'a для загрузки:\n{response["text"]}')
+            upload_url = response.get('href', None)
+            if not upload_url:
+                logging.error(f'Ошибка получения ссылки url\'a для загрузки:\n{response}')
                 return
-            upload_url = response['href']
-
             is_loaded = self.load_zip(upload_url, headers)
             if not is_loaded:
                 return
