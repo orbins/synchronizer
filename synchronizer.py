@@ -78,31 +78,30 @@ class Synchronizer:
         logger.info('Начинается процесс создания и наполнения zip-архива')
         content = os.walk(self.dir_path)
         try:
-            zip_file = pyzipper.AESZipFile('Foundation.zip', 'w', encryption=pyzipper.WZ_AES)
-            zip_file.pwd = bytes(PASSWORD, encoding='UTF-8')
-            for root, folders, files in content:
-                for folder_name in folders:
-                    absolute_path = os.path.join(root, folder_name)
-                    relative_path = absolute_path.replace(f'{self.dir_path}', '')
-                    logger.info(f'Добавление папки {absolute_path} в zip-архив')
-                    zip_file.write(absolute_path, relative_path)
-                    # absolute - путь к файлу для внесения в архив, relative - путь и имя внутри архива
+            with pyzipper.AESZipFile('Foundation.zip', 'w', encryption=pyzipper.WZ_AES) as zip_file:
+                zip_file.pwd = bytes(PASSWORD, encoding='UTF-8')
+                for root, folders, files in content:
+                    for folder_name in folders:
+                        absolute_path = os.path.join(root, folder_name)
+                        relative_path = absolute_path.replace(f'{self.dir_path}', '')
+                        logger.info(f'Добавление папки {absolute_path} в zip-архив')
+                        zip_file.write(absolute_path, relative_path)
+                        # absolute - путь к файлу в файловой системе, который нужно добавить в архив (откуда брать)
+                        # relative - Относительный путь внутри архива, куда будет добавлен файл. (куда добавить)
 
-                for file_name in files:
-                    absolute_path = os.path.join(root, file_name)
-                    relative_path = absolute_path.replace(f'{self.dir_path}', '')
-                    logger.info(f'Добавление {absolute_path} в zip-архив')
-                    zip_file.write(absolute_path, relative_path)
-            logger.info('Zip-архив успешно создан!')
-            self.zip_file = Path(__file__).cwd() / 'Foundation.zip'
+                    for file_name in files:
+                        absolute_path = os.path.join(root, file_name)
+                        relative_path = absolute_path.replace(f'{self.dir_path}', '')
+                        logger.info(f'Добавление {absolute_path} в zip-архив')
+                        zip_file.write(absolute_path, relative_path)
+                logger.info('Zip-архив успешно создан!')
+                self.zip_file = Path(__file__).cwd() / 'Foundation.zip'
         except IOError as error:
             logger.error(f'Не удалось создать zip-архив. Ошибка ввода при заполнении архива:\n{error}')
         except OSError as error:
             logger.error(f'Не удалось создать zip-архив. Ошибка системы при заполнении архива:\n{error}')
         except zipfile.BadZipfile as error:
             logger.error(f'Не удалось создать zip-архив. Ошибка записи в архив:\n{error}')
-        finally:
-            zip_file.close()
 
     @staticmethod
     def get_upload_url(headers):
@@ -150,31 +149,28 @@ class Synchronizer:
             logger.info('Файл базы данных в текущей директории не найден.')
             self.create_db()
         self.get_date_from_db()
-        if not self.last_modified:
-            return
-        logger.info(f"Date from db: {self.last_modified}")
-        logger.info(f"current date: {self.current_modified}")
-        if self.last_modified != self.current_modified:
-            logger.info('Указанная директория обновлялась. Начинается процесс синхронизации')
-            self.make_zip()
-            if not self.zip_file.exists():
-                return
-            headers = {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization': f'OAuth {ACCESS_TOKEN}'
-            }
-            response = self.get_upload_url(headers)
-            upload_url = response.get('href', None)
-            if not upload_url:
-                logging.error(f'Ошибка получения ссылки url\'a для загрузки:\n{response}')
-                return
-            is_loaded = self.load_zip(upload_url, headers)
-            if not is_loaded:
-                return
-            self.save_date_to_db()
-        else:
-            logger.info('Указанная директория не обновлялась с последней проверки, синхронизация не требуется.')
+        if self.last_modified:
+            logger.info(f"Дата последнего изменения (фактическая): {self.current_modified}")
+            logger.info(f"Дата последнего изменения из базы данных: {self.last_modified}")
+            if self.last_modified != self.current_modified:
+                logger.info('Указанная директория обновлялась. Начинается процесс синхронизации')
+                self.make_zip()
+                if self.zip_file.exists():
+                    headers = {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'Authorization': f'OAuth {ACCESS_TOKEN}'
+                    }
+                    response = self.get_upload_url(headers)
+                    upload_url = response.get('href', None)
+                    if upload_url:
+                        is_loaded = self.load_zip(upload_url, headers)
+                        if is_loaded:
+                            self.save_date_to_db()
+                    else:
+                        logging.error(f'Ошибка получения ссылки url\'a для загрузки:\n{response}')
+            else:
+                logger.info('Указанная директория не обновлялась с последней проверки, синхронизация не требуется.')
 
 
 if __name__ == '__main__':
