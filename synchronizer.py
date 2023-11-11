@@ -33,8 +33,16 @@ DATE_PLACEHOLDER = '01.01.2000'
 
 
 class Synchronizer:
+    """
+    Класс для создания архива
+    на основе передаваемого пути
+    и отправки его в облако
+    """
 
     def __init__(self, dir_path):
+        """
+        :param dir_path: путь к папке, которую нужно синхронизировать
+        """
         self.dir_path = dir_path
         self.last_modified = None
         self.current_modified = time.ctime(
@@ -44,6 +52,10 @@ class Synchronizer:
         self.zip_file = None
 
     def create_db(self):
+        """
+        Создание базы данных, в случае отсутствия файла базы
+        в текущей директории
+        """
         connection = sqlite3.connect('db.sqlite')
         cursor = connection.cursor()
         cursor.execute(
@@ -62,6 +74,9 @@ class Synchronizer:
         logger.info('Файл базы данных создан!')
 
     def get_date_from_db(self):
+        """
+        Получение даты последней синхронизации из базы данных
+        """
         logger.info('Получения даты последнего изменения из базы данных')
         connection = sqlite3.connect('db.sqlite')
         cursor = connection.cursor()
@@ -75,6 +90,9 @@ class Synchronizer:
         connection.close()
 
     def make_zip(self):
+        """
+        Создание зашифрованного zip-архива на основе передаваемой директории
+        """
         logger.info('Начинается процесс создания и наполнения zip-архива')
         content = os.walk(self.dir_path)
         try:
@@ -105,6 +123,11 @@ class Synchronizer:
 
     @staticmethod
     def get_upload_url(headers):
+        """
+        Получение url'a для загрузки zip-архива на яндекс диск
+        :param headers: заголовки к запросу
+        :return:
+        """
         params = {
             'path': 'Foundation.zip',
             'overwrite': True
@@ -119,6 +142,7 @@ class Synchronizer:
         return response
 
     def load_zip(self, upload_url, headers):
+        """Загрузка архива в облако"""
         logger.info('Загрузка архива на сервер')
         with open(self.zip_file, 'rb') as file:
             try:
@@ -133,6 +157,7 @@ class Synchronizer:
                 return False
 
     def save_date_to_db(self):
+        """Изменение даты последней синхронизации"""
         logger.info('Изменение даты обновления в базе данных')
         connection = sqlite3.connect('db.sqlite')
         cursor = connection.cursor()
