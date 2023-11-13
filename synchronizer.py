@@ -27,23 +27,44 @@ logger.addHandler(file_handler)
 
 load_dotenv()
 
-ACCESS_TOKEN = os.getenv('ACCESS_TOKEN')
-PASSWORD = os.getenv('PASSWORD')
-DATE_PLACEHOLDER = '01.01.2000'
 
-HEADERS = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-    'Authorization': f'OAuth {ACCESS_TOKEN}'
-}
+class BaseClass:
+    ACCESS_TOKEN = os.getenv('ACCESS_TOKEN')
+    PASSWORD = os.getenv('PASSWORD')
+    DATE_PLACEHOLDER = '01.01.2000'
+    HEADERS = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Authorization': f'OAuth {ACCESS_TOKEN}'
+    }
+
+    def get_upload_url(self, url, params):
+        """
+        Получение url'a для загрузки/скачивания zip-архива
+        :param url - url, который вернет ссылку на скачивание, загрузку
+        :param params - параметры запроса
+        :return: объект ответа от api яндекс диска
+        """
+        logger.info('Получение url\'a для скачивания/загрузки zip-архива')
+        response = requests.get(
+            url,
+            params=params,
+            headers=self.HEADERS
+        ).json()
+        return response
 
 
-class Loader:
+class Loader(BaseClass):
     """
     Класс для создания архива
     на основе передаваемого пути
     и отправки его в облако
     """
+    PARAMS = {
+        'path': 'Foundation.zip',
+        'overwrite': True
+    }
+    ACTION_URL = 'https://cloud-api.yandex.net/v1/disk/resources/upload'
 
     def __init__(self, dir_path):
         """
@@ -73,7 +94,7 @@ class Loader:
         connection.commit()
         cursor.execute(
             """INSERT INTO modifies (dir_path)  VALUES (?, ?)""",
-            (self.dir_path, DATE_PLACEHOLDER)
+            (self.dir_path, self.DATE_PLACEHOLDER)
         )
         connection.commit()
         connection.close()
@@ -103,7 +124,7 @@ class Loader:
         content = os.walk(self.dir_path)
         try:
             with pyzipper.AESZipFile('Foundation.zip', 'w', encryption=pyzipper.WZ_AES) as zip_file:
-                zip_file.pwd = bytes(PASSWORD, encoding='UTF-8')
+                zip_file.pwd = bytes(self.PASSWORD, encoding='UTF-8')
                 for root, folders, files in content:
                     for folder_name in folders:
                         absolute_path = os.path.join(root, folder_name)
@@ -127,26 +148,6 @@ class Loader:
         except zipfile.BadZipfile as error:
             logger.error(f'Не удалось создать zip-архив. Ошибка записи в архив:\n{error}')
 
-    @staticmethod
-    def get_upload_url():
-        """
-        Получение url'a для загрузки zip-архива на яндекс диск
-        :param headers: заголовки к запросу
-        :return:
-        """
-        params = {
-            'path': 'Foundation.zip',
-            'overwrite': True
-        }
-
-        logger.info('Получение url\'a для загрузки zip-архива')
-        response = requests.get(
-            'https://cloud-api.yandex.net/v1/disk/resources/upload',
-            params=params,
-            headers=HEADERS
-        ).json()
-        return response
-
     def load_zip(self, upload_url):
         """Загрузка архива в облако"""
         logger.info('Загрузка архива на сервер')
@@ -155,7 +156,7 @@ class Loader:
                 requests.put(
                     upload_url,
                     files={'file': file},
-                    headers=HEADERS
+                    headers=self.HEADERS
                 )
                 return True
             except KeyError as error:
@@ -187,7 +188,7 @@ class Loader:
                 logger.info('Указанная директория обновлялась. Начинается процесс синхронизации')
                 self.make_zip()
                 if self.zip_file.exists():
-                    response = self.get_upload_url()
+                    response = self.get_upload_url(self.ACTION_URL, self.PARAMS)
                     upload_url = response.get('href', None)
                     if upload_url:
                         is_loaded = self.load_zip(upload_url)
@@ -199,39 +200,24 @@ class Loader:
                 logger.info('Указанная директория не обновлялась с последней проверки, синхронизация не требуется.')
 
 
-class Importer:
+class Importer(BaseClass):
     """Класс для скачивания и декодирования архива из облака"""
-
-    @staticmethod
-    def get_upload_url():
-        """
-        Получение url'a для скачивания zip-архива с яндекс диска
-        :param headers: заголовки к запросу
-        :return:
-        """
-        params = {
-            'path': 'Foundation.zip',
-        }
-
-        logger.info('Получение url\'a для скачивания zip-архива')
-        response = requests.get(
-            'https://cloud-api.yandex.net/v1/disk/resources/download',
-            params=params,
-            headers=HEADERS
-        ).json()
-        return response
+    PARAMS = {
+        'path': 'Foundation.zip',
+    }
+    ACTION_URL = 'https://cloud-api.yandex.net/v1/disk/resources/download'
 
     def main(self):
-        response = self.get_upload_url()
+        response = self.get_upload_url(self.ACTION_URL, self.PARAMS)
         download_url = response.get('href', None)
         if download_url:
             logger.info('URL для скачивания архива получен')
-            response = requests.get(download_url, HEADERS)
+            response = requests.get(download_url, self.HEADERS)
             with open('Foundation.zip', 'wb') as file:
                 file.write(response.content)
             logger.info('Архив сохранен')
             with pyzipper.AESZipFile('Foundation.zip') as zip_file:
-                zip_file.setpassword(bytes(PASSWORD, encoding='UTF-8'))
+                zip_file.setpassword(bytes(self.PASSWORD, encoding='UTF-8'))
                 zip_file.extractall('Foundation')
             logger.info('Архив декодирован и распакован')
         else:
