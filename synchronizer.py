@@ -213,15 +213,20 @@ class Importer(BaseClass):
         if download_url:
             logger.info('URL для скачивания архива получен')
             response = requests.get(download_url, self.HEADERS)
-            with open('Foundation.zip', 'wb') as file:
-                file.write(response.content)
-            logger.info('Архив сохранен')
-            with pyzipper.AESZipFile('Foundation.zip') as zip_file:
-                zip_file.setpassword(bytes(self.PASSWORD, encoding='UTF-8'))
-                zip_file.extractall('Foundation')
-            logger.info('Архив декодирован и распакован')
+            if response.status_code == 200:
+                with open('Foundation.zip', 'wb') as file:
+                    file.write(response.content)
+                logger.info('Архив сохранен')
+                with pyzipper.AESZipFile('Foundation.zip') as zip_file:
+                    zip_file.setpassword(bytes(self.PASSWORD, encoding='UTF-8'))
+                    zip_file.extractall('Foundation')
+                logger.info('Архив декодирован и распакован')
+                os.remove(Path(__file__).cwd() / 'Foundation.zip')
+                logger.info('Zip-архив удалён')
+            else:
+                logger.error(f'Ошибка при скачивании файла с сервера: {response.text}')
         else:
-            logger.error(f'Ошибка при полуении url\'а для скачивания:\n{response}')
+            logger.error(f'Ошибка при полуении url\'а для скачивания:\n{response.text}')
 
 
 if __name__ == '__main__':
