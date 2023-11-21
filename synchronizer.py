@@ -194,6 +194,8 @@ class Loader(BaseClass):
                         is_loaded = self.load_zip(upload_url)
                         if is_loaded:
                             self.save_date_to_db()
+                            os.remove(Path(__file__).cwd() / 'Foundation.zip')
+                            logger.info('Zip-архив удалён!')
                     else:
                         logging.error(f'Ошибка получения ссылки url\'a для загрузки:\n{response}')
             else:
