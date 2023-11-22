@@ -235,8 +235,13 @@ if __name__ == '__main__':
     def select_action():
         action = input("Введите 1, если хотите загрузить архив в облако и 2, если хотите скачать его из облака: ")
         if action == '1':
-            instance = Loader('C:/Users/Danil/Desktop/Foundation')
-            instance.main()
+            dir_path = Path(os.getenv('HOST_PATH', None))
+            if dir_path.exists() and dir_path.is_dir():
+                instance = Loader(dir_path)
+                instance.main()
+            else:
+                print('Неверно задан путь к директории, попробуйте ещё раз!')
+                select_action()
         elif action == '2':
             instance = Importer()
             instance.main()
