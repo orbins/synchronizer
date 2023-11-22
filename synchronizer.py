@@ -92,8 +92,9 @@ class Loader(BaseClass):
             """
         )
         connection.commit()
+        print(self.dir_path)
         cursor.execute(
-            """INSERT INTO modifies (dir_path)  VALUES (?, ?)""",
+            """INSERT INTO modifies (dir_path, updated_date)  VALUES (?, ?)""",
             (self.dir_path, self.DATE_PLACEHOLDER)
         )
         connection.commit()
@@ -112,7 +113,7 @@ class Loader(BaseClass):
                 """SELECT updated_date FROM modifies WHERE dir_path = ?""",
                 (self.dir_path, )
             ).fetchone()[0]
-        except Exception as error:
+        except TypeError as error:
             logging.error(f'Ошибка получения даты последнего изменения из базы данных:\n{error}')
         connection.close()
 
@@ -235,12 +236,12 @@ if __name__ == '__main__':
     def select_action():
         action = input("Введите 1, если хотите загрузить архив в облако и 2, если хотите скачать его из облака: ")
         if action == '1':
-            dir_path = Path(os.getenv('HOST_PATH', None))
-            if dir_path.exists() and dir_path.is_dir():
+            dir_path = os.getenv('HOST_PATH', None)
+            if Path(dir_path).exists() and Path(dir_path).is_dir():
                 instance = Loader(dir_path)
                 instance.main()
             else:
-                print('Неверно задан путь к директории, попробуйте ещё раз!')
+                print('Путь к директории не найден!')
                 select_action()
         elif action == '2':
             instance = Importer()
