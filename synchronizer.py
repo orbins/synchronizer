@@ -75,7 +75,7 @@ class Loader(BaseClass):
         self.current_modified = time.ctime(
             max(os.path.getmtime(root) for root, _, _ in os.walk(self.dir_path))
         )
-        self.db_file = Path(__file__).cwd() / 'db.sqlite'
+        self.db_file = Path(__file__).cwd() / 'sync.sqlite'
         self.zip_file = None
 
     def create_db(self):
@@ -83,7 +83,7 @@ class Loader(BaseClass):
         Создание базы данных, в случае отсутствия файла базы
         в текущей директории
         """
-        connection = sqlite3.connect('db.sqlite')
+        connection = sqlite3.connect('sync.sqlite')
         cursor = connection.cursor()
         cursor.execute(
             """
@@ -92,7 +92,6 @@ class Loader(BaseClass):
             """
         )
         connection.commit()
-        print(self.dir_path)
         cursor.execute(
             """INSERT INTO modifies (dir_path, updated_date)  VALUES (?, ?)""",
             (self.dir_path, self.DATE_PLACEHOLDER)
@@ -106,7 +105,7 @@ class Loader(BaseClass):
         Получение даты последней синхронизации из базы данных
         """
         logger.info('Получения даты последнего изменения из базы данных')
-        connection = sqlite3.connect('db.sqlite')
+        connection = sqlite3.connect('sync.sqlite')
         cursor = connection.cursor()
         try:
             self.last_modified = cursor.execute(
@@ -167,7 +166,7 @@ class Loader(BaseClass):
     def save_date_to_db(self):
         """Изменение даты последней синхронизации"""
         logger.info('Изменение даты обновления в базе данных')
-        connection = sqlite3.connect('db.sqlite')
+        connection = sqlite3.connect('sync.sqlite')
         cursor = connection.cursor()
         cursor.execute(
             f"""UPDATE modifies SET updated_date = ? WHERE dir_path = ?""",
