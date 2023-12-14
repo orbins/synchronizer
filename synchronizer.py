@@ -126,6 +126,7 @@ class Loader(BaseClass):
             with pyzipper.AESZipFile('Foundation.zip', 'w', encryption=pyzipper.WZ_AES) as zip_file:
                 zip_file.pwd = bytes(self.PASSWORD, encoding='UTF-8')
                 for root, folders, files in content:
+
                     for folder_name in folders:
                         absolute_path = os.path.join(root, folder_name)
                         relative_path = absolute_path.replace(f'{self.dir_path}', '')
@@ -168,10 +169,13 @@ class Loader(BaseClass):
         logger.info('Изменение даты обновления в базе данных')
         connection = sqlite3.connect('sync.sqlite')
         cursor = connection.cursor()
-        cursor.execute(
-            f"""UPDATE modifies SET updated_date = ? WHERE dir_path = ?""",
-            (self.current_modified, self.dir_path)
-        )
+        try:
+            cursor.execute(
+                f"""UPDATE modifies SET updated_date = ? WHERE dir_path = ?""",
+                (self.current_modified, self.dir_path)
+            )
+        except TypeError as error:
+            logger.error(f"Ошибка, дата последней синхронизации не обновлена в БД:\n{error}")
         connection.commit()
         connection.close()
         logger.info('Синхронизация успешно завершена!')
@@ -198,8 +202,12 @@ class Loader(BaseClass):
                             logger.info('Zip-архив удалён!')
                     else:
                         logging.error(f'Ошибка получения ссылки url\'a для загрузки:\n{response}')
+                else:
+                    logging.error('Zip-архив не был создан')
             else:
                 logger.info('Указанная директория не обновлялась с последней проверки, синхронизация не требуется.')
+        else:
+            logger.error('Не удалось получить последнюю дату модификации файла!')
 
 
 class Importer(BaseClass):
@@ -233,20 +241,23 @@ class Importer(BaseClass):
 
 if __name__ == '__main__':
     def select_action():
-        action = input("Введите 1, если хотите загрузить архив в облако и 2, если хотите скачать его из облака: ")
-        if action == '1':
-            dir_path = os.getenv('HOST_PATH', None)
-            if Path(dir_path).exists() and Path(dir_path).is_dir():
-                instance = Loader(dir_path)
+        try:
+            action = input("Введите '1' для загруки архива в облако и '2' для скачивания из облака: ")
+            if action == '1':
+                dir_path = os.getenv('HOST_PATH', None)
+                if Path(dir_path).exists() and Path(dir_path).is_dir():
+                    instance = Loader(dir_path)
+                    instance.main()
+                else:
+                    logger.error('Путь к директории не найден! Проверьте env файл!')
+                    select_action()
+            elif action == '2':
+                instance = Importer()
                 instance.main()
             else:
-                print('Путь к директории не найден!')
+                print('Некорректный ввод, попробуйте ещё раз!')
                 select_action()
-        elif action == '2':
-            instance = Importer()
-            instance.main()
-        else:
-            print('Некорректный ввод, попробуйте ещё раз!')
-            select_action()
+        except Exception as error:
+            logger.error(f'Непредвиденная ошибка:\n {error}')
 
     select_action()
