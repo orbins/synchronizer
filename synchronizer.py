@@ -9,6 +9,8 @@ import pyzipper
 from dotenv import load_dotenv
 import requests
 
+load_dotenv()
+
 # SETTINGS
 logger = logging.getLogger(__name__)
 logger.setLevel('INFO')
@@ -20,12 +22,10 @@ stream_handler.setLevel(logging.INFO)
 stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
 
-file_handler = logging.FileHandler('sync.log', encoding='UTF-8')
+file_handler = logging.FileHandler(os.getenv('LOG_FILE'), encoding='UTF-8')
 file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
-
-load_dotenv()
 
 
 class BaseClass:
@@ -106,7 +106,7 @@ class Loader(BaseClass):
         Получение даты последней синхронизации из базы данных
         """
         logger.info('Получения даты последнего изменения из базы данных')
-        connection = sqlite3.connect('sync.sqlite')
+        connection = sqlite3.connect(self.db_file)
         cursor = connection.cursor()
         try:
             self.last_modified = cursor.execute(
@@ -168,7 +168,7 @@ class Loader(BaseClass):
     def save_date_to_db(self):
         """Изменение даты последней синхронизации"""
         logger.info('Изменение даты обновления в базе данных')
-        connection = sqlite3.connect('sync.sqlite')
+        connection = sqlite3.connect(self.db_file)
         cursor = connection.cursor()
         try:
             cursor.execute(
@@ -183,7 +183,7 @@ class Loader(BaseClass):
 
     def main(self):
         if not self.db_file.exists():
-            logger.info('Файл базы данных в текущей директории не найден.')
+            logger.info('Файл базы данных не найден.')
             self.create_db()
         self.get_date_from_db()
         if self.last_modified:
