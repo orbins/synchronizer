@@ -260,5 +260,8 @@ if __name__ == '__main__':
                 select_action()
         except Exception as error:
             logger.error(f'Непредвиденная ошибка:\n {error}')
+        time.sleep(1)
+        print("Работа завершена. Нажмите Enter, чтобы закрыть окно.")
+        input()
 
     select_action()
