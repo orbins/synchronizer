@@ -76,7 +76,7 @@ class Loader(BaseClass):
         self.current_modified = time.ctime(
             max(os.path.getmtime(root) for root, _, _ in os.walk(self.dir_path))
         )
-        self.db_file = Path(__file__).cwd() / 'sync.sqlite'
+        self.db_file = Path(os.getenv('DB_FILE', None))
         self.zip_file = None
 
     def create_db(self):
@@ -84,7 +84,7 @@ class Loader(BaseClass):
         Создание базы данных, в случае отсутствия файла базы
         в текущей директории
         """
-        connection = sqlite3.connect('sync.sqlite')
+        connection = sqlite3.connect(self.db_file)
         cursor = connection.cursor()
         cursor.execute(
             """
